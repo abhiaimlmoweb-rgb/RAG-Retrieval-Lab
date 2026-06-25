@@ -82,6 +82,8 @@ with st.sidebar:
     st.subheader("Generation")
     generator_provider = st.selectbox("Provider", list(GENERATOR_PROVIDERS.keys()), format_func=lambda k: GENERATOR_PROVIDERS[k])
     gemini_key = st.text_input("Gemini key", os.getenv(GEMINI_API_KEY_ENV, ""), type="password")
+    if chunking_strategy == "agent" and not (gemini_key or os.getenv(GEMINI_API_KEY_ENV)):
+        st.caption("Agent chunking needs a Gemini API key (sidebar or `.env`). Falls back to recursive.")
     openai_key = st.text_input("OpenAI key", os.getenv(OPENAI_API_KEY_ENV, ""), type="password")
     anthropic_key = st.text_input("Anthropic key", os.getenv(ANTHROPIC_API_KEY_ENV, ""), type="password")
 

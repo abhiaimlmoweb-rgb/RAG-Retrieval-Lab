@@ -31,7 +31,11 @@ from pipeline import PipelineConfig, RAGPipeline  # noqa: E402
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="RAG Retrieval Lab CLI")
     p.add_argument("--query", required=True)
-    p.add_argument("--strategy", choices=["fixed", "recursive", "semantic", "parent_child"], default="recursive")
+    p.add_argument(
+        "--strategy",
+        choices=["fixed", "recursive", "semantic", "parent_child", "document_based", "agent"],
+        default="recursive",
+    )
     p.add_argument("--model", choices=["bge-small", "minilm", "openai", "cohere"], default="bge-small")
     p.add_argument(
         "--retrieval",

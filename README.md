@@ -267,7 +267,7 @@ Requires `GEMINI_API_KEY`. Retrieval and reranking work without an API key.
 | **Vector DB** | FAISS, Qdrant (local/remote), Pinecone |
 | **Embeddings** | BGE, MiniLM, OpenAI, Cohere |
 | **Retrieval** | Dense, BM25, hybrid RRF, **weighted fusion (α)**, **SPLADE**, ColBERT |
-| **Chunking** | Fixed, recursive, semantic, **parent-child (small-to-big)** |
+| **Chunking** | Fixed, recursive, semantic, parent-child, **document-based**, **agent (Gemini)** |
 | **RAG quality** | Query expansion (multi/HyDE), citation verification, **CRAG**, **RAGAS-style metrics** |
 | **Learning UI** | **Compare Methods tab** — same query across retrievers |
 | **Generation** | Gemini, OpenAI, Claude |

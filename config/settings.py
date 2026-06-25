@@ -44,6 +44,8 @@ CHUNKING_STRATEGIES = {
     "fixed": "Fixed character windows",
     "semantic": "Semantic (embedding breakpoints)",
     "parent_child": "Parent-child (small retrieve, big context)",
+    "document_based": "Document-based (headings, tables, sections)",
+    "agent": "Agent-based (Gemini proposes chunk boundaries)",
 }
 
 QUERY_EXPANSION_MODES = {

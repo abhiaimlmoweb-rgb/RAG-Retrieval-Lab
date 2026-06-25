@@ -29,7 +29,11 @@ def parse_args() -> argparse.Namespace:
         default=DATA_DIR / "eval_qa.json",
         help="JSON file with labeled queries",
     )
-    parser.add_argument("--strategy", choices=["fixed", "recursive", "semantic", "parent_child"], default="recursive")
+    parser.add_argument(
+        "--strategy",
+        choices=["fixed", "recursive", "semantic", "parent_child", "document_based", "agent"],
+        default="recursive",
+    )
     parser.add_argument("--model", choices=["bge-small", "minilm", "openai", "cohere"], default="bge-small")
     parser.add_argument(
         "--retrieval",

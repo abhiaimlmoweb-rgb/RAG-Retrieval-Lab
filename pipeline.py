@@ -13,6 +13,8 @@ from typing import Callable
 from chunkers.base import BaseChunker, Chunk
 from chunkers.fixed import FixedChunker
 from chunkers.recursive import RecursiveChunker
+from chunkers.agent_based import AgentChunker
+from chunkers.document_based import DocumentBasedChunker
 from chunkers.parent_child import ParentChildChunker
 from chunkers.semantic import SemanticChunker
 from config.settings import (
@@ -72,6 +74,9 @@ def get_chunker(
     strategy: str,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+    *,
+    gemini_api_key: str | None = None,
+    gemini_model: str = DEFAULT_GEMINI_MODEL,
 ) -> BaseChunker:
     if strategy == "fixed":
         return FixedChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -81,6 +86,15 @@ def get_chunker(
         return SemanticChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     if strategy == "parent_child":
         return ParentChildChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    if strategy == "document_based":
+        return DocumentBasedChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    if strategy == "agent":
+        return AgentChunker(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            api_key=gemini_api_key,
+            model_name=gemini_model,
+        )
     raise ValueError(f"Unknown chunking strategy: {strategy}")
 
 
@@ -213,6 +227,8 @@ class RAGPipeline:
             self.config.chunking_strategy,
             self.config.chunk_size,
             self.config.chunk_overlap,
+            gemini_api_key=self.config.gemini_api_key,
+            gemini_model=self.config.gemini_model,
         )
         needs_embedder = self.config.retrieval_mode not in ("bm25", "splade")
         self.embedder = get_embedder(self.config.embedding_model) if needs_embedder else None
@@ -238,6 +254,7 @@ class RAGPipeline:
     def _config_hash(self) -> str:
         payload = {
             "chunking": self.config.chunking_strategy,
+            "chunk_size": self.config.top_k,
             "embed": self.config.embedding_model,
             "retrieval": self.config.retrieval_mode,
             "backend": self.config.index_backend,
