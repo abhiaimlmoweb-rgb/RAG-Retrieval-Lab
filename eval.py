@@ -15,7 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config.settings import DATA_DIR, DEFAULT_TOP_K, EXPERIMENTS_DIR  # noqa: E402
+from config.settings import COMPARE_RETRIEVAL_MODES, DATA_DIR, DEFAULT_TOP_K, EXPERIMENTS_DIR  # noqa: E402
 from evaluators.retrieval_eval import EvalDataset, RetrievalEvaluator  # noqa: E402
 from pipeline import PipelineConfig, RAGPipeline  # noqa: E402
 from utils.observability import get_logger  # noqa: E402
@@ -29,11 +29,21 @@ def parse_args() -> argparse.Namespace:
         default=DATA_DIR / "eval_qa.json",
         help="JSON file with labeled queries",
     )
-    parser.add_argument("--strategy", choices=["fixed", "recursive", "semantic"], default="recursive")
+    parser.add_argument(
+        "--strategy",
+        choices=["fixed", "recursive", "semantic", "parent_child", "document_based", "agent"],
+        default="recursive",
+    )
     parser.add_argument("--model", choices=["bge-small", "minilm", "openai", "cohere"], default="bge-small")
-    parser.add_argument("--retrieval", choices=["dense", "bm25", "hybrid", "colbert"], default="hybrid")
+    parser.add_argument(
+        "--retrieval",
+        choices=["dense", "bm25", "hybrid", "weighted_hybrid", "splade", "colbert"],
+        default="hybrid",
+    )
     parser.add_argument("--index-backend", choices=["memory", "faiss", "qdrant", "pinecone"], default="memory")
     parser.add_argument("--rerank", action="store_true")
+    parser.add_argument("--compare", action="store_true", help="Compare all standard retrieval modes")
+    parser.add_argument("--compare-query", type=str, default="What is hybrid search?")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     return parser.parse_args()
@@ -63,6 +73,16 @@ def main() -> None:
     logger.info("Building index for %d documents", len(docs))
     n = pipeline.build_index()
     logger.info("Indexed %d chunks", n)
+
+    if args.compare:
+        comparison = pipeline.compare_retrieval(args.compare_query, modes=COMPARE_RETRIEVAL_MODES, top_k=args.top_k)
+        print(f"\n--- Compare retrieval: {args.compare_query!r} ---")
+        for mode, hits in comparison.items():
+            top = hits[0] if hits else None
+            preview = top.chunk.text[:80] if top else "—"
+            score = f"{top.similarity_score:.4f}" if top else "—"
+            print(f"  {mode:16} score={score}  preview={preview!r}")
+        return
 
     dataset = EvalDataset.load(args.dataset)
     evaluator = RetrievalEvaluator(pipeline)

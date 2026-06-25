@@ -25,8 +25,12 @@ RETRIEVAL_MODES = {
     "dense": "Dense embedding similarity",
     "bm25": "BM25 lexical",
     "hybrid": "Hybrid dense + BM25 (RRF)",
+    "weighted_hybrid": "Weighted score fusion (α·dense + (1-α)·BM25)",
+    "splade": "SPLADE learned sparse (neural)",
     "colbert": "ColBERT late interaction",
 }
+
+COMPARE_RETRIEVAL_MODES = ["dense", "bm25", "hybrid", "weighted_hybrid", "splade"]
 
 INDEX_BACKENDS = {
     "memory": "In-memory NumPy cosine",
@@ -39,6 +43,9 @@ CHUNKING_STRATEGIES = {
     "recursive": "Recursive (paragraph/sentence)",
     "fixed": "Fixed character windows",
     "semantic": "Semantic (embedding breakpoints)",
+    "parent_child": "Parent-child (small retrieve, big context)",
+    "document_based": "Document-based (headings, tables, sections)",
+    "agent": "Agent-based (Gemini proposes chunk boundaries)",
 }
 
 QUERY_EXPANSION_MODES = {
@@ -96,3 +103,23 @@ DEFAULT_CHUNK_OVERLAP = 64
 DEFAULT_TOP_K = 5
 DEFAULT_RERANK_POOL = 15
 DEFAULT_CRAWL_MAX_PAGES = 10
+DEFAULT_HYBRID_ALPHA = 0.5
+DEFAULT_CRAG_THRESHOLD = 0.35
+
+
+def resolve_api_key(provider: str, explicit: str | None = None) -> str | None:
+    """Resolve API key from explicit value (UI), then environment."""
+    if explicit and explicit.strip():
+        return explicit.strip()
+    env_map = {
+        "gemini": GEMINI_API_KEY_ENV,
+        "openai": OPENAI_API_KEY_ENV,
+        "claude": ANTHROPIC_API_KEY_ENV,
+        "cohere": COHERE_API_KEY_ENV,
+    }
+    env_name = env_map.get(provider)
+    if env_name:
+        value = os.getenv(env_name)
+        if value and value.strip():
+            return value.strip()
+    return None

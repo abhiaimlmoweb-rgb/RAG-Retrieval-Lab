@@ -26,3 +26,7 @@ opentelemetry-sdk>=1.27.0
 python-dotenv>=1.0.0
 numpy>=1.26.0
 pandas>=2.2.0
+transformers>=4.40.0
+
+# Dev / tests
+pytest>=8.0.0

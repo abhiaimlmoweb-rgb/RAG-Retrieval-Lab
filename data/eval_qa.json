@@ -30,5 +30,33 @@
   {
     "query": "What chunk size is recommended?",
     "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  },
+  {
+    "query": "What are dense embeddings good at?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 0}]
+  },
+  {
+    "query": "What is lexical retrieval?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
+  },
+  {
+    "query": "Why use recursive chunking?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  },
+  {
+    "query": "What is Reciprocal Rank Fusion?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
+  },
+  {
+    "query": "How does RAG reduce hallucinations?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 0}]
+  },
+  {
+    "query": "What overlap is suggested for chunks?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  },
+  {
+    "query": "When is BM25 stronger than dense search?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
   }
 ]

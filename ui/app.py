@@ -17,10 +17,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from config.settings import (  # noqa: E402
     CHUNKING_STRATEGIES,
     CLAUDE_MODELS,
+    COMPARE_RETRIEVAL_MODES,
     DATA_DIR,
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
     DEFAULT_CRAWL_MAX_PAGES,
+    DEFAULT_CRAG_THRESHOLD,
+    DEFAULT_HYBRID_ALPHA,
     DEFAULT_TOP_K,
     EMBEDDING_MODELS,
     EXPERIMENTS_DIR,
@@ -32,6 +35,8 @@ from config.settings import (  # noqa: E402
     OPENAI_CHAT_MODELS,
     QUERY_EXPANSION_MODES,
     RETRIEVAL_MODES,
+    ANTHROPIC_API_KEY_ENV,
+    resolve_api_key,
 )
 from evaluators.dashboard import EvaluationDashboard  # noqa: E402
 from evaluators.experiment_tracker import ExperimentTracker  # noqa: E402
@@ -58,6 +63,10 @@ with st.sidebar:
     )
     embedding_key = st.selectbox("Embedding", list(EMBEDDING_MODELS.keys()), format_func=lambda k: EMBEDDING_MODELS[k])
     retrieval_mode = st.selectbox("Retrieval", list(RETRIEVAL_MODES.keys()), format_func=lambda k: RETRIEVAL_MODES[k], index=2)
+    hybrid_alpha = st.slider("Hybrid α (dense weight)", 0.0, 1.0, DEFAULT_HYBRID_ALPHA, 0.05, disabled=retrieval_mode != "weighted_hybrid")
+    use_parent_doc = st.checkbox("Parent-document retrieval", False)
+    use_crag = st.checkbox("Corrective RAG (CRAG)", False)
+    crag_threshold = st.slider("CRAG threshold", 0.1, 0.9, DEFAULT_CRAG_THRESHOLD, 0.05, disabled=not use_crag)
     index_backend = st.selectbox("Index Backend", list(INDEX_BACKENDS.keys()), format_func=lambda k: INDEX_BACKENDS[k])
     query_expansion = st.selectbox("Query Expansion", list(QUERY_EXPANSION_MODES.keys()), format_func=lambda k: QUERY_EXPANSION_MODES[k])
     use_reranker = st.checkbox("Reranking", False)
@@ -73,8 +82,10 @@ with st.sidebar:
     st.subheader("Generation")
     generator_provider = st.selectbox("Provider", list(GENERATOR_PROVIDERS.keys()), format_func=lambda k: GENERATOR_PROVIDERS[k])
     gemini_key = st.text_input("Gemini key", os.getenv(GEMINI_API_KEY_ENV, ""), type="password")
+    if chunking_strategy == "agent" and not (gemini_key or os.getenv(GEMINI_API_KEY_ENV)):
+        st.caption("Agent chunking needs a Gemini API key (sidebar or `.env`). Falls back to recursive.")
     openai_key = st.text_input("OpenAI key", os.getenv(OPENAI_API_KEY_ENV, ""), type="password")
-    anthropic_key = st.text_input("Anthropic key", os.getenv("ANTHROPIC_API_KEY", ""), type="password")
+    anthropic_key = st.text_input("Anthropic key", os.getenv(ANTHROPIC_API_KEY_ENV, ""), type="password")
 
     if generator_provider == "gemini":
         gen_model = st.selectbox("Model", list(GEMINI_MODELS.keys()), format_func=lambda k: GEMINI_MODELS[k])
@@ -85,7 +96,7 @@ with st.sidebar:
 
     save_experiments = st.checkbox("Save experiments", True)
 
-tab_query, tab_eval, tab_human = st.tabs(["Query", "Batch Eval", "Human Rubrics"])
+tab_query, tab_compare, tab_eval, tab_human = st.tabs(["Query", "Compare Methods", "Batch Eval", "Human Rubrics"])
 
 if "pipeline" not in st.session_state:
     st.session_state.pipeline = None
@@ -105,6 +116,10 @@ def _config() -> PipelineConfig:
         use_reranker=use_reranker,
         verify_citations=verify_citations,
         deduplicate_docs=dedup,
+        use_parent_document=use_parent_doc,
+        use_crag=use_crag,
+        hybrid_alpha=hybrid_alpha,
+        crag_threshold=crag_threshold,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         top_k=top_k,
@@ -137,6 +152,11 @@ def _show_results(results, generation, exp_path, pipeline: RAGPipeline, query_te
         st.session_state.last_answer = generation.answer
         if pipeline.last_citation_report:
             st.json(pipeline.last_citation_report.to_dict())
+        if pipeline.last_ragas_report:
+            st.subheader("RAGAS-style metrics")
+            st.json(pipeline.last_ragas_report.to_dict())
+        if pipeline.last_retrieval_grade:
+            st.caption(f"CRAG grade: {pipeline.last_retrieval_grade.to_dict()}")
         if gemini_key or os.getenv(GEMINI_API_KEY_ENV):
             try:
                 judge = LLMJudge(api_key=gemini_key or None)
@@ -205,13 +225,70 @@ with tab_query:
         p.config = _config()
         p.sync_runtime_config()
         if btn_g:
-            with st.spinner("Generating..."):
-                res, gen, path = p.run_query(query.strip(), save_experiment=save_experiments, top_k=top_k, generate=True, generator_provider=generator_provider)
-            _show_results(res, gen, path, p, query.strip())
+            api_key = resolve_api_key(
+                generator_provider,
+                {"gemini": gemini_key, "openai": openai_key, "claude": anthropic_key}.get(
+                    generator_provider
+                ),
+            )
+            if not api_key:
+                st.error(
+                    f"API key required for **{generator_provider}**. "
+                    f"Enter it in the sidebar or add it to `.env` "
+                    f"({GEMINI_API_KEY_ENV}, {OPENAI_API_KEY_ENV}, or {ANTHROPIC_API_KEY_ENV})."
+                )
+            else:
+                with st.spinner("Generating..."):
+                    res, gen, path = p.run_query(
+                        query.strip(),
+                        save_experiment=save_experiments,
+                        top_k=top_k,
+                        generate=True,
+                        generator_provider=generator_provider,
+                        api_key=api_key,
+                    )
+                _show_results(res, gen, path, p, query.strip())
         else:
             with st.spinner("Retrieving..."):
                 res, _, path = p.run_query(query.strip(), save_experiment=save_experiments, top_k=top_k)
             _show_results(res, None, path, p, query.strip())
+
+with tab_compare:
+    st.caption("Run the same query across retrieval methods to learn tradeoffs.")
+    compare_query = st.text_input("Compare question", key="compare_q")
+    compare_modes = st.multiselect(
+        "Methods",
+        COMPARE_RETRIEVAL_MODES,
+        default=["dense", "bm25", "hybrid", "weighted_hybrid"],
+        format_func=lambda m: RETRIEVAL_MODES.get(m, m),
+    )
+    if st.button("Compare retrieval", disabled=not st.session_state.index_built, type="primary"):
+        if compare_query.strip() and compare_modes:
+            p: RAGPipeline = st.session_state.pipeline
+            p.config = _config()
+            with st.spinner("Comparing retrieval methods..."):
+                comparison = p.compare_retrieval(compare_query.strip(), modes=compare_modes, top_k=top_k)
+            rows = []
+            for mode, hits in comparison.items():
+                for h in hits:
+                    rows.append(
+                        {
+                            "Method": mode,
+                            "Rank": h.rank,
+                            "Score": round(h.similarity_score, 4),
+                            "Source": h.source_document,
+                            "Preview": h.chunk.text[:120] + ("…" if len(h.chunk.text) > 120 else ""),
+                        }
+                    )
+            st.dataframe(rows, use_container_width=True)
+            summary = {
+                mode: {
+                    "top_score": round(hits[0].similarity_score, 4) if hits else 0,
+                    "latency_ms": round(hits[0].latency_ms, 1) if hits else 0,
+                }
+                for mode, hits in comparison.items()
+            }
+            st.json(summary)
 
 with tab_eval:
     st.caption("Labeled queries in data/eval_qa.json")

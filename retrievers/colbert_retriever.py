@@ -6,6 +6,7 @@ Two-stage: dense candidate pool, then ColBERT MaxSim re-ranking via RAGatouille.
 
 from __future__ import annotations
 
+import logging
 import time
 
 from chunkers.base import Chunk
@@ -14,6 +15,7 @@ from retrievers.base import BaseRetriever, RetrievalResult
 from retrievers.cosine_retriever import CosineRetriever
 
 COLBERT_MODEL = "colbert-ir/colbertv2.0"
+logger = logging.getLogger(__name__)
 
 
 class ColBERTRetriever(BaseRetriever):
@@ -66,10 +68,22 @@ class ColBERTRetriever(BaseRetriever):
         elapsed = (time.perf_counter() - start) * 1000
 
         results: list[RetrievalResult] = []
-        for rank, hit in enumerate(hits, start=1):
-            doc_idx = int(hit.get("document_id", hit.get("passage_id", rank - 1)))
-            if doc_idx >= len(self._chunks):
-                doc_idx = rank - 1
+        for hit in hits:
+            raw_id = hit.get("document_id", hit.get("passage_id"))
+            if raw_id is None:
+                logger.warning("ColBERT hit missing document_id/passage_id")
+                continue
+            doc_idx = int(raw_id)
+            # RAGatouille may return 1-based passage ids
+            if doc_idx >= len(self._chunks) and doc_idx - 1 >= 0 and doc_idx - 1 < len(self._chunks):
+                doc_idx -= 1
+            if doc_idx < 0 or doc_idx >= len(self._chunks):
+                logger.warning(
+                    "ColBERT returned out-of-bounds index %s (chunks=%d); skipping hit",
+                    raw_id,
+                    len(self._chunks),
+                )
+                continue
             chunk = self._chunks[doc_idx]
             score = float(hit.get("score", hit.get("similarity", 0.0)))
             results.append(
@@ -77,7 +91,7 @@ class ColBERTRetriever(BaseRetriever):
                     query=query,
                     chunk=chunk,
                     similarity_score=score,
-                    rank=rank,
+                    rank=len(results) + 1,
                     latency_ms=elapsed,
                     source_document=chunk.document_name,
                     retrieval_method="colbert",

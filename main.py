@@ -31,9 +31,17 @@ from pipeline import PipelineConfig, RAGPipeline  # noqa: E402
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="RAG Retrieval Lab CLI")
     p.add_argument("--query", required=True)
-    p.add_argument("--strategy", choices=["fixed", "recursive", "semantic"], default="recursive")
+    p.add_argument(
+        "--strategy",
+        choices=["fixed", "recursive", "semantic", "parent_child", "document_based", "agent"],
+        default="recursive",
+    )
     p.add_argument("--model", choices=["bge-small", "minilm", "openai", "cohere"], default="bge-small")
-    p.add_argument("--retrieval", choices=["dense", "bm25", "hybrid", "colbert"], default="hybrid")
+    p.add_argument(
+        "--retrieval",
+        choices=["dense", "bm25", "hybrid", "weighted_hybrid", "splade", "colbert"],
+        default="hybrid",
+    )
     p.add_argument("--index-backend", choices=["memory", "faiss", "qdrant", "pinecone"], default="memory")
     p.add_argument("--query-expansion", choices=["none", "multi", "hyde"], default="none")
     p.add_argument("--rerank", action="store_true")

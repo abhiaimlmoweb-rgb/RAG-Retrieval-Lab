@@ -8,9 +8,10 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from loaders.base import LoadedDocument
+from loaders.base import LoadedDocument, content_hash
 from loaders.html_loader import HTMLLoader
 from loaders.web_loader import DEFAULT_HEADERS
+from loaders.web_naming import url_document_slug
 
 CRAWLABLE = (".html", ".htm", "", "/")
 
@@ -50,13 +51,13 @@ class WebCrawler:
 
             text = HTMLLoader.html_to_text(resp.text)
             if text.strip():
-                path_slug = urlparse(url).path.replace("/", "_")[:80] or "index"
                 documents.append(
                     LoadedDocument(
-                        document_name=f"crawl_{base_host}_{path_slug}.html",
+                        document_name=url_document_slug(url, prefix=f"crawl_{base_host}"),
                         text=text,
                         page_count=1,
                         source_path=url,
+                        content_hash=content_hash(text),
                     )
                 )
 

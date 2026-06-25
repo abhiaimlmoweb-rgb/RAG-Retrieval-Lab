@@ -12,8 +12,9 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from loaders.html_loader import HTMLLoader
 from loaders.base import LoadedDocument, content_hash
+from loaders.html_loader import HTMLLoader
+from loaders.web_naming import url_document_slug
 
 DEFAULT_HEADERS = {
     "User-Agent": "RAG-Retrieval-Lab/1.0 (educational; +https://github.com)",
@@ -39,10 +40,8 @@ class WebLoader:
         if not text.strip():
             raise ValueError(f"No extractable text from URL: {url}")
 
-        hostname = parsed.netloc.replace(":", "_")
-        name = f"web_{hostname}{parsed.path.replace('/', '_')}.html"
         return LoadedDocument(
-            document_name=name[:120],
+            document_name=url_document_slug(url, prefix="web"),
             text=text,
             page_count=1,
             source_path=url,

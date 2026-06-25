@@ -262,18 +262,33 @@ Requires `GEMINI_API_KEY`. Retrieval and reranking work without an API key.
 
 ## Extension roadmap
 
-All planned enhancements are implemented:
-
 | Area | Features |
 |------|----------|
 | **Vector DB** | FAISS, Qdrant (local/remote), Pinecone |
 | **Embeddings** | BGE, MiniLM, OpenAI, Cohere |
-| **Retrieval** | Dense, BM25, hybrid RRF, ColBERT late interaction |
-| **RAG quality** | Semantic chunking, query expansion (multi/HyDE), citation verification |
+| **Retrieval** | Dense, BM25, hybrid RRF, **weighted fusion (α)**, **SPLADE**, ColBERT |
+| **Chunking** | Fixed, recursive, semantic, parent-child, **document-based**, **agent (Gemini)** |
+| **RAG quality** | Query expansion (multi/HyDE), citation verification, **CRAG**, **RAGAS-style metrics** |
+| **Learning UI** | **Compare Methods tab** — same query across retrievers |
 | **Generation** | Gemini, OpenAI, Claude |
-| **Eval** | nDCG/MRR/recall@K, LLM-as-judge, human rubrics UI |
-| **Ingestion** | PDF/TXT/MD/HTML/DOCX+tables, web fetch, site crawler, dedup/versioning |
+| **Eval** | nDCG/MRR/recall@K (15 labeled queries), LLM-as-judge, human rubrics UI, `--compare` CLI |
+| **Ingestion** | PDF/TXT/MD/HTML/DOCX+tables, web fetch, site crawler, dedup/versioning, **URL-hash names** |
 | **Production** | Streamlit auth, Redis query cache, OpenTelemetry, file logging |
+| **Tests** | `pytest tests/` — web naming, dedup, hybrid, CRAG |
+
+### Compare retrieval methods
+
+```bash
+python eval.py --compare --compare-query "What is BM25 used for?"
+```
+
+Or use the **Compare Methods** tab in Streamlit.
+
+### Run tests
+
+```bash
+pytest tests/ -q
+```
 
 ### Optional services (`.env`)
 
