@@ -1,9 +1,7 @@
 """
 Google Gemini answer generator.
 
-Uses the Gemini API to synthesize answers from retrieved chunks. Set
-GEMINI_API_KEY in your environment or pass the key explicitly.
-
+Uses the Gemini API to synthesize answers from retrieved chunks.
 Get a key: https://aistudio.google.com/apikey
 """
 
@@ -17,28 +15,8 @@ from google.genai import types
 
 from config.settings import DEFAULT_GEMINI_MODEL, GEMINI_API_KEY_ENV
 from generators.base import BaseGenerator, GenerationResult
+from generators.prompts import RAG_SYSTEM_PROMPT, build_user_prompt
 from retrievers.base import RetrievalResult
-
-RAG_SYSTEM_PROMPT = """You are a helpful research assistant. Answer the user's question using ONLY the provided context.
-
-Rules:
-- If the context does not contain enough information, say so clearly.
-- Cite source document names in brackets when referencing specific facts, e.g. [sample_rag_guide.pdf].
-- Be concise but thorough. Use bullet points when listing multiple items.
-- Do not invent facts not supported by the context.
-"""
-
-
-def _format_context(results: list[RetrievalResult]) -> str:
-    if not results:
-        return "(No context retrieved.)"
-
-    blocks: list[str] = []
-    for r in results:
-        blocks.append(
-            f"--- Source: {r.source_document} (chunk {r.chunk.chunk_id}) ---\n{r.chunk.text}"
-        )
-    return "\n\n".join(blocks)
 
 
 class GeminiGenerator(BaseGenerator):
@@ -64,14 +42,7 @@ class GeminiGenerator(BaseGenerator):
         return self._model_name
 
     def generate(self, query: str, results: list[RetrievalResult]) -> GenerationResult:
-        context = _format_context(results)
-        user_prompt = f"""Context:
-{context}
-
-Question: {query}
-
-Answer:"""
-
+        user_prompt = build_user_prompt(query, results)
         start = time.perf_counter()
         response = self._client.models.generate_content(
             model=self._model_name,
@@ -82,15 +53,12 @@ Answer:"""
             ),
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
-
         answer = response.text.strip() if response.text else "(Empty response from model.)"
-        token_estimate = len(user_prompt.split()) + len(RAG_SYSTEM_PROMPT.split())
-
         return GenerationResult(
             query=query,
             answer=answer,
             model=self._model_name,
             latency_ms=elapsed_ms,
             context_chunks=len(results),
-            prompt_tokens_estimate=token_estimate,
+            prompt_tokens_estimate=len(user_prompt.split()) + len(RAG_SYSTEM_PROMPT.split()),
         )

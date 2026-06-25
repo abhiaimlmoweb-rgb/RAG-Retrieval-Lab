@@ -5,3 +5,7 @@ __pycache__/
 *.egg-info/
 .DS_Store
 experiments/exp_*.json
+cache/embeddings/
+logs/
+qdrant_data/
+experiments/human_rubrics.jsonl

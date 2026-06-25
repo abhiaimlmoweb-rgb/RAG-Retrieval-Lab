@@ -1,0 +1,34 @@
+[
+  {
+    "query": "What is retrieval-augmented generation?",
+    "relevant_chunks": [{"document_name": "sample_rag_guide.pdf", "chunk_id": 0}]
+  },
+  {
+    "query": "How does hybrid search work?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
+  },
+  {
+    "query": "What is BM25 used for?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
+  },
+  {
+    "query": "What is cosine similarity in embeddings?",
+    "relevant_chunks": [{"document_name": "sample_rag_guide.pdf", "chunk_id": 0}]
+  },
+  {
+    "query": "What is semantic chunking?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  },
+  {
+    "query": "How do you enable Gemini generation?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  },
+  {
+    "query": "What is cross-encoder reranking?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 1}]
+  },
+  {
+    "query": "What chunk size is recommended?",
+    "relevant_chunks": [{"document_name": "rag_lab_notes.md", "chunk_id": 2}]
+  }
+]

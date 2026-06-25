@@ -18,6 +18,10 @@ Built for learning and comparison: swap chunking strategies, embedding models, r
 | **Reranking** | Cross-encoder (`ms-marco-MiniLM`) | Re-score top candidates jointly |
 | **Generation** | Google Gemini API | Grounded answers from retrieved context |
 | **Evaluation** | Dashboard + JSON experiment logs | Compare runs over time |
+| **Batch eval** | nDCG@K, MRR, recall@K | Labeled `data/eval_qa.json` harness |
+| **Index backends** | NumPy memory or FAISS | Swap via `--index-backend` |
+| **Caching** | Disk embedding cache | Faster rebuilds (`cache/embeddings/`) |
+| **Observability** | Structured file logging | `logs/pipeline.log` |
 | **UI** | Streamlit | Interactive workbench |
 
 ### Pipeline
@@ -43,6 +47,9 @@ rag-retrieval-lab/
 ├── loaders/
 │   ├── pdf_loader.py            # PyMuPDF PDF ingestion
 │   ├── text_loader.py           # TXT / Markdown
+│   ├── html_loader.py           # HTML files
+│   ├── docx_loader.py           # Word documents
+│   ├── web_loader.py              # URL fetch + extract
 │   └── document_loader.py       # Unified loader
 ├── chunkers/
 │   ├── fixed.py                 # Fixed character windows
@@ -52,14 +59,22 @@ rag-retrieval-lab/
 │   └── minilm.py                # all-MiniLM-L6-v2
 ├── retrievers/
 │   ├── cosine_retriever.py      # Dense cosine search
+│   ├── faiss_retriever.py       # FAISS vector index
 │   ├── bm25_retriever.py        # Lexical BM25
 │   ├── hybrid_retriever.py      # RRF fusion
 │   └── reranker.py              # Cross-encoder reranking
 ├── generators/
-│   └── gemini_generator.py      # Google Gemini RAG answers
+│   ├── gemini_generator.py      # Google Gemini
+│   ├── openai_generator.py      # OpenAI Chat
+│   └── factory.py                 # Provider factory
+├── cache/
+│   └── embedding_cache.py       # Disk embedding cache
+├── utils/
+│   └── observability.py         # Pipeline logging
 ├── evaluators/
-│   ├── dashboard.py             # Results tables
-│   └── experiment_tracker.py    # JSON logs
+│   ├── metrics.py               # nDCG, MRR, recall@K
+│   └── retrieval_eval.py        # Batch eval harness
+├── eval.py                      # Batch eval CLI
 ├── ui/app.py                    # Streamlit workbench
 ├── pipeline.py                  # Orchestration
 ├── main.py                      # CLI
@@ -158,6 +173,13 @@ python main.py --query "How does hybrid search work?" \
   --gemini-model gemini-2.0-flash
 ```
 
+### Batch evaluation
+
+```bash
+python eval.py --dataset data/eval_qa.json --retrieval hybrid --top-k 5
+python eval.py --index-backend faiss --rerank
+```
+
 ### CLI options
 
 | Flag | Description | Default |
@@ -166,8 +188,10 @@ python main.py --query "How does hybrid search work?" \
 | `--strategy` | `fixed` or `recursive` | `recursive` |
 | `--model` | `bge-small` or `minilm` | `bge-small` |
 | `--retrieval` | `dense`, `bm25`, or `hybrid` | `hybrid` |
+| `--index-backend` | `memory` or `faiss` | `memory` |
 | `--rerank` | Cross-encoder reranking | off |
-| `--generate` | Gemini answer generation | off |
+| `--generate` | LLM answer generation | off |
+| `--generator` | `gemini` or `openai` | `gemini` |
 | `--gemini-model` | Gemini model name | `gemini-2.0-flash` |
 | `--chunk-size` | Characters per chunk | `512` |
 | `--chunk-overlap` | Overlap between chunks | `64` |
@@ -238,14 +262,29 @@ Requires `GEMINI_API_KEY`. Retrieval and reranking work without an API key.
 
 ## Extension roadmap
 
-| Area | Next step |
-|------|-----------|
-| Vector DB | Qdrant, FAISS, Pinecone |
-| More loaders | HTML, DOCX, web crawl |
-| Embeddings | OpenAI, Cohere, ColBERT |
-| Eval metrics | nDCG, MRR, recall@K |
-| Generation | OpenAI, Claude, local Ollama |
-| Production | Caching, auth, observability |
+All planned enhancements are implemented:
+
+| Area | Features |
+|------|----------|
+| **Vector DB** | FAISS, Qdrant (local/remote), Pinecone |
+| **Embeddings** | BGE, MiniLM, OpenAI, Cohere |
+| **Retrieval** | Dense, BM25, hybrid RRF, ColBERT late interaction |
+| **RAG quality** | Semantic chunking, query expansion (multi/HyDE), citation verification |
+| **Generation** | Gemini, OpenAI, Claude |
+| **Eval** | nDCG/MRR/recall@K, LLM-as-judge, human rubrics UI |
+| **Ingestion** | PDF/TXT/MD/HTML/DOCX+tables, web fetch, site crawler, dedup/versioning |
+| **Production** | Streamlit auth, Redis query cache, OpenTelemetry, file logging |
+
+### Optional services (`.env`)
+
+| Variable | Purpose |
+|----------|---------|
+| `QDRANT_URL` | Remote Qdrant (omit for local `qdrant_data/`) |
+| `PINECONE_API_KEY` | Pinecone managed index |
+| `REDIS_URL` | Query result cache |
+| `STREAMLIT_PASSWORD` | UI login gate |
+| `OTEL_ENABLED=true` | Console trace spans |
+| `COHERE_API_KEY` / `ANTHROPIC_API_KEY` | Cohere embed / Claude generation |
 
 ---
 

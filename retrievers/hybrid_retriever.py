@@ -1,8 +1,5 @@
 """
-Hybrid retriever: dense cosine + BM25 with Reciprocal Rank Fusion (RRF).
-
-RRF merges ranked lists without calibrating incompatible score scales — a
-robust default in production search (Elasticsearch, Vespa, many RAG stacks).
+Hybrid retriever: dense + BM25 with Reciprocal Rank Fusion (RRF).
 """
 
 from __future__ import annotations
@@ -10,12 +7,9 @@ from __future__ import annotations
 import time
 
 from chunkers.base import Chunk
-from embeddings.base import BaseEmbedder
 from retrievers.base import BaseRetriever, RetrievalResult
 from retrievers.bm25_retriever import BM25Retriever
-from retrievers.cosine_retriever import CosineRetriever
 
-# RRF constant from the original paper; 60 is a common default
 RRF_K = 60
 
 
@@ -24,12 +18,6 @@ def reciprocal_rank_fusion(
     *,
     k: int = RRF_K,
 ) -> list[tuple[int, float]]:
-    """
-    Fuse multiple ranked chunk-index lists into one RRF score ordering.
-
-    Returns:
-        List of (chunk_index, rrf_score) sorted descending by score.
-    """
     scores: dict[int, float] = {}
     for ranking in ranked_lists:
         for rank, chunk_idx in enumerate(ranking):
@@ -38,11 +26,12 @@ def reciprocal_rank_fusion(
 
 
 class HybridRetriever(BaseRetriever):
-    """Combines dense and BM25 retrieval via RRF."""
+    """Combines any dense retriever with BM25 via RRF."""
 
-    def __init__(self, embedder: BaseEmbedder) -> None:
-        self.dense = CosineRetriever(embedder)
+    def __init__(self, dense: BaseRetriever) -> None:
+        self.dense = dense
         self.sparse = BM25Retriever()
+        self._chunks: list[Chunk] = []
 
     @property
     def is_indexed(self) -> bool:
@@ -50,9 +39,10 @@ class HybridRetriever(BaseRetriever):
 
     @property
     def chunk_count(self) -> int:
-        return self.dense.chunk_count
+        return len(self._chunks)
 
     def index(self, chunks: list[Chunk]) -> None:
+        self._chunks = list(chunks)
         self.dense.index(chunks)
         self.sparse.index(chunks)
 
@@ -63,21 +53,18 @@ class HybridRetriever(BaseRetriever):
             raise ValueError("top_k must be positive")
 
         start = time.perf_counter()
-
-        # Fetch a wider candidate pool from each retriever before fusion
         pool_k = min(max(top_k * 3, top_k), self.chunk_count)
         dense_results = self.dense.retrieve(query, top_k=pool_k)
         sparse_results = self.sparse.retrieve(query, top_k=pool_k)
 
         dense_ranking = [self._chunk_index(r.chunk) for r in dense_results]
         sparse_ranking = [self._chunk_index(r.chunk) for r in sparse_results]
-
         fused = reciprocal_rank_fusion([dense_ranking, sparse_ranking])
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         results: list[RetrievalResult] = []
         for rank, (idx, rrf_score) in enumerate(fused[:top_k], start=1):
-            chunk = self.dense.chunks[idx]
+            chunk = self._chunks[idx]
             results.append(
                 RetrievalResult(
                     query=query,
@@ -92,7 +79,7 @@ class HybridRetriever(BaseRetriever):
         return results
 
     def _chunk_index(self, chunk: Chunk) -> int:
-        for i, c in enumerate(self.dense.chunks):
+        for i, c in enumerate(self._chunks):
             if c.document_name == chunk.document_name and c.chunk_id == chunk.chunk_id:
                 return i
         raise ValueError("Chunk not found in index")

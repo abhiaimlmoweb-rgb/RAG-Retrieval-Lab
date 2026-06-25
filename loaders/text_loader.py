@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from loaders.pdf_loader import LoadedDocument
+from loaders.base import LoadedDocument, content_hash
 
 TEXT_EXTENSIONS = (".txt", ".md", ".markdown")
 
@@ -35,6 +35,7 @@ class TextLoader:
             text=text,
             page_count=line_count,
             source_path=str(path.resolve()),
+            content_hash=content_hash(text),
         )
 
     def load_all(self) -> list[LoadedDocument]:
