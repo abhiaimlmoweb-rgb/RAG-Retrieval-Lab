@@ -1,0 +1,22 @@
+# RAG Retrieval Lab — core dependencies
+
+# UI
+streamlit>=1.32.0
+
+# Document ingestion
+PyMuPDF>=1.24.0
+
+# Embeddings & reranking
+sentence-transformers>=2.6.0
+torch>=2.2.0
+
+# Sparse retrieval
+rank-bm25>=0.2.2
+
+# LLM generation (Google Gemini)
+google-genai>=1.0.0
+
+# Config & data
+python-dotenv>=1.0.0
+numpy>=1.26.0
+pandas>=2.2.0
